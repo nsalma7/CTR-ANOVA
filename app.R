@@ -1,0 +1,153 @@
+###CTRs Ad Placement Analysis###
+library(shiny)
+library(shinydashboard)
+library(DT)
+library(ggplot2)
+library(stats)
+
+# Input Data
+data1 <- data.frame(
+  Day = 1:10,
+  Left_Sidebar = c(2.5, 2.7, 2.8, 2.6, 3.0, 2.4, 2.9, 2.5, 2.6, 2.7),
+  Center_Page = c(4.8, 4.5, 4.0, 4.7, 3.9, 3.6, 4.1, 3.4, 4.8, 3.9),
+  Right_Sidebar = c(3.1, 2.9, 3.0, 3.2, 3.3, 2.8, 3.4, 3.1, 3.2, 3.5)
+)
+
+# Define UI
+ui <- dashboardPage(
+  dashboardHeader(title = "CTR Analysis Dashboard"),
+  dashboardSidebar(
+    sidebarMenu(
+      menuItem("Input Data", tabName = "input_data", icon = icon("table")),
+      menuItem("Statistics Analysis", tabName = "statistical_analysis", icon = icon("calculator")),
+      menuItem("Data Visualization", tabName = "data_visualization", icon = icon("bar-chart"))
+    )
+  ),
+  dashboardBody(
+    tabItems(
+      tabItem(tabName = "input_data",
+              fluidPage(
+                box(
+                  title = "Data Table",
+                  status = "primary",
+                  solidHeader = TRUE,
+                  DTOutput("data_table")
+                ),
+                box(
+                  title = "Add/Edit Data",
+                  status = "primary",
+                  solidHeader = TRUE,
+                  textInput("day_input", "Day:", ""),
+                  numericInput("left_sidebar_input", "Left Sidebar:", value = 0),
+                  numericInput("center_page_input", "Center Page:", value = 0),
+                  numericInput("right_sidebar_input", "Right Sidebar:", value = 0),
+                  actionButton("add_data_button", "Add Data")
+                )
+              )
+      ),
+      tabItem(tabName = "statistical_analysis",
+              fluidPage(
+                box(
+                  title = "ANOVA Analysis Results",
+                  status = "info",
+                  solidHeader = TRUE,
+                  verbatimTextOutput("anova_output")
+                ),
+                box(
+                  title = "Decision Analysis",
+                  "Using confidence level of 95%, if the p-value is less than 0.05 (p-value < 0.05), then there is at least one significant difference in the average CTR based on the placement of ads on the website. Furthermore, if the p-value is greater than 0.05 (p-value > 0.05), then there is no significant difference in the average CTR based on the placement of ads on the website"
+                )
+              )
+      ),
+      tabItem(tabName = "data_visualization",
+              fluidPage(
+                box(
+                  title = "Barplot - Left Sidebar",
+                  status = "success",
+                  solidHeader = TRUE,
+                  plotOutput("barplot_left_sidebar")
+                ),
+                box(
+                  title = "Barplot - Center Page",
+                  status = "success",
+                  solidHeader = TRUE,
+                  plotOutput("barplot_center_page")
+                ),
+                box(
+                  title = "Barplot - Right Sidebar",
+                  status = "success",
+                  solidHeader = TRUE,
+                  plotOutput("barplot_right_sidebar")
+                )
+              )
+      )
+    )
+  )
+)
+
+# Define Server
+server <- function(input, output) {
+  reactive_data <- reactiveVal(data1)
+  
+  observeEvent(input$add_data_button, {
+    new_data <- data.frame(
+      Day = as.numeric(input$day_input),
+      Left_Sidebar = as.numeric(input$left_sidebar_input),
+      Center_Page = as.numeric(input$center_page_input),
+      Right_Sidebar = as.numeric(input$right_sidebar_input)
+    )
+    reactive_data(rbind(reactive_data(), new_data))
+  })
+  
+  output$data_table <- renderDT({
+    datatable(reactive_data(), options = list(pageLength = 15))
+  })
+  
+  observeEvent(input$edit_data_button, {
+    # Implement edit data functionality if needed
+  })
+  
+  observeEvent(input$delete_data_button, {
+    # Implement delete data functionality if needed
+  })
+  
+  observe({
+    # Anova test to compare mean Left_Sidebar, Center_Page, and Right_Sidebar across different days
+    anova_left_sidebar <- aov(Left_Sidebar ~ Day, data = reactive_data())
+    anova_center_page <- aov(Center_Page ~ Day, data = reactive_data())
+    anova_right_sidebar <- aov(Right_Sidebar ~ Day, data = reactive_data())
+    
+    # Display Anova test results
+    output$anova_output <- renderPrint({
+      list(
+        Left_Sidebar = summary(anova_left_sidebar),
+        Center_Page = summary(anova_center_page),
+        Right_Sidebar = summary(anova_right_sidebar)
+      )
+    })
+  })
+  
+  output$barplot_left_sidebar <- renderPlot({
+    ggplot(reactive_data(), aes(x = Day, y = Left_Sidebar)) +
+      geom_bar(stat = "identity", fill = "red") + 
+      labs(title = "Barplot of Left Sidebar vs. Day", x = "Day", y = "Left Sidebar") +
+      theme_minimal()
+  })
+  
+  output$barplot_center_page <- renderPlot({
+    ggplot(reactive_data(), aes(x = Day, y = Center_Page)) +
+      geom_bar(stat = "identity", fill = "red") + 
+      labs(title = "Barplot of Center Page vs. Day", x = "Day", y = "Center Page") +
+      theme_minimal()
+  })
+  
+  output$barplot_right_sidebar <- renderPlot({
+    ggplot(reactive_data(), aes(x = Day, y = Right_Sidebar)) +
+      geom_bar(stat = "identity", fill = "red") + 
+      labs(title = "Barplot of Right Sidebar vs. Day", x = "Day", y = "Right Sidebar") +
+      theme_minimal()
+  })
+}
+
+# Run the app
+shinyApp(ui,server)
